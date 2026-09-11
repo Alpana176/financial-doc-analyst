@@ -1,0 +1,12 @@
+google-generativeai
+streamlit
+fastapi
+uvicorn
+python-multipart
+pymupdf
+sentence-transformers
+chromadb
+yfinance
+python-dotenv
+requests
+pydantic

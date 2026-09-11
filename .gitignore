@@ -1,0 +1,20 @@
+﻿# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+
+# Node
+node_modules/
+
+# Data and models
+uploads/
+vector_store/
+*.db
+*.sqlite
+*.ckpt
+*.pt
+
+# Editor
+.vscode/
