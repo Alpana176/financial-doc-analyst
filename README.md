@@ -188,7 +188,7 @@ mention, and what's my EMI at that rate?" triggers both
 
 **Alpana Choubey**
 - GitHub: [@Alpana176](https://github.com/Alpana176)
-- LinkedIn: [Add your LinkedIn URL]
+- LinkedIn: https://www.linkedin.com/in/alpana-choubey-28152422a/
 
 ---
 ⭐ Star this repo if you find it useful!
