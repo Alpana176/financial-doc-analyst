@@ -1,34 +1,31 @@
-import re
-from time import time
-
-import fitz
-import chromadb
 import os
+import re
 import uuid
+import base64
+import fitz
 import docx
 import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
-import base64
+import chromadb
 from groq import Groq
 
 # Load environment variables
 load_dotenv()
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+# Lazy-load Groq client
+def get_groq_client():
+    return Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 def ocr_page_with_groq(page):
     """Convert a scanned PDF page to text using Groq vision model."""
     try:
-        # Render page as image
         pix = page.get_pixmap(dpi=200)
         img_bytes = pix.tobytes("png")
-        
-        # Convert to base64
         img_base64 = base64.b64encode(img_bytes).decode("utf-8")
-        
-        # Send to Groq vision model
-        response = groq_client.chat.completions.create(
+
+        client = get_groq_client()
+        response = client.chat.completions.create(
             model="qwen/qwen3.8-27b",
             messages=[
                 {
@@ -36,9 +33,7 @@ def ocr_page_with_groq(page):
                     "content": [
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{img_base64}"
-                            }
+                            "image_url": {"url": f"data:image/png;base64,{img_base64}"}
                         },
                         {
                             "type": "text",
@@ -50,11 +45,8 @@ def ocr_page_with_groq(page):
         )
         raw_text = response.choices[0].message.content
 
-        # Remove thinking tags if present
-        import re
-        # Remove thinking tags and everything between them
+        # Clean up <think> tags
         raw_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL)
-        # Also remove any remaining think tags
         raw_text = re.sub(r'<think>.*', '', raw_text, flags=re.DOTALL)
 
         return raw_text.strip()
@@ -62,8 +54,10 @@ def ocr_page_with_groq(page):
         print(f"OCR failed for page: {e}")
         return ""
 
-# Initialize embedding model
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+# Lazy-load embedding model
+from sentence_transformers import SentenceTransformer
+def get_model():
+    return SentenceTransformer("all-MiniLM-L6-v2")
 
 # Initialize Chroma client
 chroma_client = chromadb.PersistentClient(path="./vector_store")
@@ -72,75 +66,60 @@ collection = chroma_client.get_or_create_collection("financial_docs")
 # ---------------- PDF Reading ----------------
 def read_pdf(file_path):
     import concurrent.futures
-    
     results = []
     doc = fitz.open(file_path)
     pages_to_ocr = []
-    
-    # First pass — extract text from normal pages
+
     for page_num in range(len(doc)):
         page = doc[page_num]
         text = page.get_text("text")
-        
         if text.strip():
             results.append((page_num + 1, text))
         else:
-            # Mark for OCR
             pages_to_ocr.append((page_num + 1, page))
-    
-    # Second pass — OCR all scanned pages in parallel
+
     if pages_to_ocr:
-        print(f"Running OCR on {len(pages_to_ocr)} scanned pages in parallel...")
-        
+        print(f"Running OCR on {len(pages_to_ocr)} scanned pages...")
         def ocr_single_page(page_data):
-            import time
             page_num, page = page_data
-            time.sleep(1)  # small delay to avoid rate limit
             text = ocr_page_with_groq(page)
             return (page_num, text)
-        
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+
+        # Keep concurrency low to save memory
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             ocr_results = list(executor.map(ocr_single_page, pages_to_ocr))
-        
+
         for page_num, text in ocr_results:
             if text.strip():
                 results.append((page_num, text))
-    
-    # Sort by page number
+
     results.sort(key=lambda x: x[0])
     doc.close()
     return results
 
 def read_docx(file_path):
     doc = docx.Document(file_path)
-    results = []
-    for page_num, para in enumerate(doc.paragraphs):
-        if para.text.strip():
-            results.append((page_num + 1, para.text))
-    return results
+    return [(i + 1, para.text) for i, para in enumerate(doc.paragraphs) if para.text.strip()]
 
 def read_excel(file_path):
-    results = []
     xl = pd.ExcelFile(file_path)
-    for sheet_num, sheet_name in enumerate(xl.sheet_names):
+    results = []
+    for i, sheet_name in enumerate(xl.sheet_names):
         df = pd.read_excel(file_path, sheet_name=sheet_name)
         text = f"Sheet: {sheet_name}\n{df.to_string()}"
-        results.append((sheet_num + 1, text))
+        results.append((i + 1, text))
     return results
 
 def read_csv(file_path):
     df = pd.read_csv(file_path)
-    text = df.to_string()
-    return [(1, text)]
+    return [(1, df.to_string())]
 
 def read_txt(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
-        text = f.read()
-    return [(1, text)]
+        return [(1, f.read())]
 
 def load_document(file_path):
     ext = Path(file_path).suffix.lower()
-    
     if ext == ".pdf":
         return read_pdf(file_path)
     elif ext == ".docx":
@@ -170,8 +149,7 @@ def prepare_chunks(pages, filename):
     doc_id = str(uuid.uuid4())
     all_chunks = []
     for page_num, text in pages:
-        chunks = chunk_text(text)
-        for chunk in chunks:
+        for chunk in chunk_text(text):
             all_chunks.append({
                 "chunk_text": chunk,
                 "page_number": page_num,
@@ -183,15 +161,12 @@ def prepare_chunks(pages, filename):
 # ---------------- ChromaDB Storage ----------------
 def store_chunks(chunks):
     global collection
-
-    # Reset the collection so only the current document's chunks remain.
-    # Without this, every new upload just piles on top of old documents,
-    # so stale data from previous uploads leaks into new answers.
     chroma_client.delete_collection("financial_docs")
     collection = chroma_client.get_or_create_collection("financial_docs")
 
-    texts = [chunk["chunk_text"] for chunk in chunks]
-    embeddings = embedding_model.encode(texts).tolist()
+    texts = [c["chunk_text"] for c in chunks]
+    model = get_model()
+    embeddings = model.encode(texts).tolist()
 
     for i, chunk in enumerate(chunks):
         collection.add(
@@ -206,24 +181,6 @@ def store_chunks(chunks):
         )
 
 def query_collection(query_text, top_k=3):
-    query_embedding = embedding_model.encode([query_text]).tolist()
-    return collection.query(
-        query_embeddings=query_embedding,
-        n_results=top_k
-    )
-
-# ---------------- Main ----------------
-if __name__ == "__main__":
-    file_path = "uploads/tata-motor-IAR-2024-25.pdf"
-
-    print("Reading PDF...")
-    pages = read_pdf(file_path)
-    print(f"Total pages: {len(pages)}")
-
-    print("Preparing chunks...")
-    chunks = prepare_chunks(pages, file_path)
-    print(f"Total chunks: {len(chunks)}")
-
-    print("Storing in Chroma...")
-    store_chunks(chunks)
-    print("Done! PDF ingested successfully.")
+    model = get_model()
+    query_embedding = model.encode([query_text]).tolist()
+    return collection.query(query_embeddings=query_embedding, n_results=top_k)
