@@ -14,6 +14,7 @@ from backend.tools import (
 
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+GROQ_MODEL = "openai/gpt-oss-120b"
 
 tools = [
     {
@@ -153,7 +154,6 @@ def call_groq(messages, error_context=""):
     message if the call fails or comes back empty.
     """
     try:
-        GROQ_MODEL = "openai/gpt-oss-120b"
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=messages

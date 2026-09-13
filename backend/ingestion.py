@@ -7,8 +7,10 @@ import docx
 import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
-import chromadb
 from groq import Groq
+from google import genai
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +29,7 @@ def ocr_page_with_groq(page):
         client = get_groq_client()
         response = client.chat.completions.create(
             model="qwen/qwen3.8-27b",
+            max_tokens=500,
             messages=[
                 {
                     "role": "user",
@@ -54,14 +57,37 @@ def ocr_page_with_groq(page):
         print(f"OCR failed for page: {e}")
         return ""
 
-# Lazy-load embedding model
-from sentence_transformers import SentenceTransformer
-def get_model():
-    return SentenceTransformer("all-MiniLM-L6-v2")
+# Lazy-load Gemini client for embeddings
+def get_embedding_client():
+    return genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Initialize Chroma client
-chroma_client = chromadb.PersistentClient(path="./vector_store")
-collection = chroma_client.get_or_create_collection("financial_docs")
+def get_embeddings(texts):
+    """texts can be a single string or a list of strings. Always returns a list of vectors."""
+    client = get_embedding_client()
+    result = client.models.embed_content(
+        model="gemini-embedding-001",
+        contents=texts
+    )
+    return [e.values for e in result.embeddings]
+
+# ---------------- Qdrant Cloud setup ----------------
+QDRANT_COLLECTION = "financial_docs"
+EMBEDDING_SIZE = 3072  # gemini-embedding-001 default dimension
+
+qdrant = QdrantClient(
+    url=os.getenv("QDRANT_URL"),
+    api_key=os.getenv("QDRANT_API_KEY"),
+)
+
+def ensure_collection():
+    """Create the collection once if it doesn't already exist. Never deletes it."""
+    if not qdrant.collection_exists(QDRANT_COLLECTION):
+        qdrant.create_collection(
+            collection_name=QDRANT_COLLECTION,
+            vectors_config=VectorParams(size=EMBEDDING_SIZE, distance=Distance.COSINE),
+        )
+
+ensure_collection()
 
 # ---------------- PDF Reading ----------------
 def read_pdf(file_path):
@@ -83,6 +109,7 @@ def read_pdf(file_path):
         def ocr_single_page(page_data):
             page_num, page = page_data
             text = ocr_page_with_groq(page)
+            time.sleep(4)
             return (page_num, text)
 
         # Keep concurrency low to save memory
@@ -158,29 +185,49 @@ def prepare_chunks(pages, filename):
             })
     return all_chunks
 
-# ---------------- ChromaDB Storage ----------------
+# ---------------- Qdrant Storage ----------------
 def store_chunks(chunks):
-    global collection
-    chroma_client.delete_collection("financial_docs")
-    collection = chroma_client.get_or_create_collection("financial_docs")
+    """Adds new chunks to the collection WITHOUT deleting existing documents.
+    Multiple uploaded documents can now coexist."""
+    ensure_collection()
 
     texts = [c["chunk_text"] for c in chunks]
-    model = get_model()
-    embeddings = model.encode(texts).tolist()
+    embeddings = get_embeddings(texts)
 
+    points = []
     for i, chunk in enumerate(chunks):
-        collection.add(
-            ids=[f"{chunk['doc_id']}_{chunk['page_number']}_{i}"],
-            documents=[chunk["chunk_text"]],
-            embeddings=[embeddings[i]],
-            metadatas=[{
+        points.append(PointStruct(
+            id=str(uuid.uuid4()),
+            vector=embeddings[i],
+            payload={
+                "chunk_text": chunk["chunk_text"],
                 "page_number": chunk["page_number"],
                 "filename": chunk["filename"],
-                "doc_id": chunk["doc_id"]
-            }]
-        )
+                "doc_id": chunk["doc_id"],
+            }
+        ))
+
+    qdrant.upsert(collection_name=QDRANT_COLLECTION, points=points)
 
 def query_collection(query_text, top_k=3):
-    model = get_model()
-    query_embedding = model.encode([query_text]).tolist()
-    return collection.query(query_embeddings=query_embedding, n_results=top_k)
+    """Returns results in the same documents/metadatas shape the rest of
+    the app already expects (matches the old ChromaDB return format)."""
+    query_embedding = get_embeddings([query_text])[0]
+
+    results = qdrant.query_points(
+        collection_name=QDRANT_COLLECTION,
+        query=query_embedding,
+        limit=top_k,
+    )
+
+    documents = [point.payload["chunk_text"] for point in results.points]
+    metadatas = [
+        {
+            "page_number": point.payload["page_number"],
+            "filename": point.payload["filename"],
+            "doc_id": point.payload["doc_id"],
+        }
+        for point in results.points
+    ]
+
+    return {"documents": [documents], "metadatas": [metadatas]}
