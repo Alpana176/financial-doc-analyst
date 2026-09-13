@@ -53,6 +53,16 @@ with tab1:
 
 with tab2:
     st.header("Ask Questions About Your Documents")
+    try:
+
+        docs_response = requests.get(f"{API_URL}/documents")
+        available_docs = docs_response.json().get("filenames", []) if docs_response.status_code == 200 else []
+    except Exception:
+        available_docs = []
+
+    doc_options = ["All documents"] + available_docs
+    selected_doc = st.selectbox("Ask about:", doc_options)
+    selected_filename = None if selected_doc == "All documents" else selected_doc
     
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
@@ -76,7 +86,8 @@ with tab2:
                 try:
                     payload = {
                         "question": prompt,
-                        "conversation_history": st.session_state.conversation_history
+                        "conversation_history": st.session_state.conversation_history,
+                        "filename": selected_filename
                     }
                     response = requests.post(f"{API_URL}/query", json=payload)
                     

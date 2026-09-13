@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from backend.ingestion import load_document, prepare_chunks, store_chunks
+from backend.ingestion import load_document, prepare_chunks, store_chunks, list_uploaded_filenames
 from backend.agent import run_agent
 
 load_dotenv()
@@ -33,6 +33,7 @@ ALLOWED_EXTENSIONS = (".pdf", ".docx", ".xlsx", ".xls", ".csv", ".txt")
 class QueryRequest(BaseModel):
     question: str
     conversation_history: list = []
+    filename: str = None
 
 @app.get("/health")
 def health_check():
@@ -88,7 +89,8 @@ async def query_document(request: QueryRequest):
         
         result = run_agent(
             user_question=request.question,
-            conversation_history=request.conversation_history
+            conversation_history=request.conversation_history,
+            selected_filename=request.filename
         )
         
         return {
@@ -106,6 +108,14 @@ async def query_document(request: QueryRequest):
         print("=== FULL ERROR ===")
         print(error_details)
         print("=== END ERROR ===")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/documents")
+def get_documents():
+    try:
+        filenames = list_uploaded_filenames()
+        return {"filenames": filenames}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

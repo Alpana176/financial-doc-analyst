@@ -11,8 +11,8 @@ from backend.ingestion import query_collection
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-def search_documents(query, top_k=3):
-    results = query_collection(query, top_k=top_k)
+def search_documents(query, top_k=3, filename=None):
+    results = query_collection(query, top_k=top_k, filename=filename)
     
     documents = results["documents"][0]
     metadatas = results["metadatas"][0]
@@ -26,8 +26,8 @@ def search_documents(query, top_k=3):
         })
     
     return formatted
-def extract_financial_data(topic):
-    search_results = search_documents(topic, top_k=5)
+def extract_financial_data(topic, filename=None):
+    search_results = search_documents(topic, top_k=5, filename=filename)
     
     context = "\n\n".join([r["text"] for r in search_results])
     

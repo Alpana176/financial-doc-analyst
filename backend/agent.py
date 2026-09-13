@@ -112,12 +112,12 @@ def execute_tool(tool_name, tool_args):
     if tool_name == "search_documents":
         if "query" not in tool_args:
             return {"error": "No search query was provided."}
-        return search_documents(tool_args["query"])
+        return search_documents(tool_args["query"], filename=tool_args.get("filename"))
 
     elif tool_name == "extract_financial_data":
         if "topic" not in tool_args:
             return {"error": "No topic was provided to extract data about."}
-        return extract_financial_data(tool_args["topic"])
+        return extract_financial_data(tool_args["topic"], filename=tool_args.get("filename"))
 
     elif tool_name == "get_market_data":
         if "ticker" not in tool_args:
@@ -167,7 +167,7 @@ def call_groq(messages, error_context=""):
     return response.choices[0].message.content.strip()
 
 
-def run_agent(user_question, conversation_history=None):
+def run_agent(user_question, conversation_history=None, selected_filename=None):
     if conversation_history is None:
         conversation_history = []
 
@@ -234,8 +234,14 @@ ARGS: {{}}"""
                 routing_parse_failed = True
 
     # Step 3 - Execute tool
+        # Step 3 - Execute tool
     tool_result = None
     if tool_name != "none":
+        # Inject the user-selected document filter (from the UI dropdown)
+        # into search-related tools, regardless of what the LLM decided.
+        if selected_filename and tool_name in ("search_documents", "extract_financial_data"):
+            tool_args["filename"] = selected_filename
+
         reasoning_steps.append({
             "tool_called": tool_name,
             "arguments": tool_args

@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from groq import Groq
 from google import genai
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 
 # Load environment variables
 load_dotenv()
@@ -209,15 +209,23 @@ def store_chunks(chunks):
 
     qdrant.upsert(collection_name=QDRANT_COLLECTION, points=points)
 
-def query_collection(query_text, top_k=3):
+def query_collection(query_text, top_k=3, filename=None):
     """Returns results in the same documents/metadatas shape the rest of
-    the app already expects (matches the old ChromaDB return format)."""
+    the app already expects (matches the old ChromaDB return format).
+    If filename is provided, only searches chunks from that document."""
     query_embedding = get_embeddings([query_text])[0]
+
+    query_filter = None
+    if filename:
+        query_filter = Filter(
+            must=[FieldCondition(key="filename", match=MatchValue(value=filename))]
+        )
 
     results = qdrant.query_points(
         collection_name=QDRANT_COLLECTION,
         query=query_embedding,
         limit=top_k,
+        query_filter=query_filter,
     )
 
     documents = [point.payload["chunk_text"] for point in results.points]
@@ -231,3 +239,26 @@ def query_collection(query_text, top_k=3):
     ]
 
     return {"documents": [documents], "metadatas": [metadatas]}
+
+
+def list_uploaded_filenames():
+    """Returns a sorted list of unique filenames currently stored in Qdrant."""
+    filenames = set()
+    next_offset = None
+
+    while True:
+        points, next_offset = qdrant.scroll(
+            collection_name=QDRANT_COLLECTION,
+            limit=200,
+            offset=next_offset,
+            with_payload=["filename"],
+            with_vectors=False,
+        )
+        for point in points:
+            fn = point.payload.get("filename")
+            if fn:
+                filenames.add(fn)
+        if next_offset is None:
+            break
+
+    return sorted(filenames)
