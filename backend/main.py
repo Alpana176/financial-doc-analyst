@@ -5,6 +5,7 @@ import traceback
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,7 +34,7 @@ ALLOWED_EXTENSIONS = (".pdf", ".docx", ".xlsx", ".xls", ".csv", ".txt")
 class QueryRequest(BaseModel):
     question: str
     conversation_history: list = []
-    filename: str = None
+    filename: Optional[str] = None
 
 @app.get("/health")
 def health_check():
