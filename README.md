@@ -3,6 +3,8 @@
 An intelligent document analysis system that lets users upload financial 
 documents and get instant answers, structured data extraction, live market 
 data, and financial calculations — powered by RAG pipelines and LLM agents.
+🖼️ Preview
+
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green)
