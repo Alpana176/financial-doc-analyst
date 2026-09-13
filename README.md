@@ -4,6 +4,10 @@ An intelligent document analysis system that lets users upload financial
 documents and get instant answers, structured data extraction, live market 
 data, and financial calculations — powered by RAG pipelines and LLM agents.
 🖼️ Preview
+## Project Preview
+
+![Financial Document Analyst](images/your-image.png)
+
 
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
