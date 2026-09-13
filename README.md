@@ -24,8 +24,9 @@ reports, loan agreements, and balance sheets to extract key information.
 This system solves that in seconds — with source citations so every 
 answer is verifiable.
 
-🚀 Live Demo
-https://financial-doc-analyst-5x7qrt4xi2nid5neffs44j.streamlit.app/
+## 🚀 Live Demo
+
+👉 [Try it live](https://financial-doc-analyst-5x7qrt4xi2nid5neffs44j.streamlit.app/)
 ## ✨ Features
 
 ### 📄 Multi-Format Document Support
