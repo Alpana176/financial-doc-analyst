@@ -177,10 +177,12 @@ def run_agent(user_question, conversation_history=None):
     routing_prompt = f"""You are a financial document analyst. Based on the user question, decide which tool to use.
 
 Available tools:
-1. search_documents - Use for questions about document content
+1. search_documents - Use for ANY question that could relate to an uploaded document's content, summary, purpose, or details — including vague phrasing like "what is this about", "what does this say", "summarize this", or "explain this document". Default to this tool whenever there's any reasonable chance the user is asking about their uploaded file.
 2. extract_financial_data - Use for extracting financial figures/tables
 3. get_market_data - Use for live stock prices (needs ticker like AAPL)
 4. calculate_financial_metric - Use for EMI, compound interest, CAGR calculations
+
+Only reply with "none" for clear non-document questions like greetings ("hi", "hello") or general knowledge unrelated to any file (e.g. "what is inflation").
 
 User question: {user_question}
 
@@ -193,6 +195,11 @@ Important argument names:
 - extract_financial_data needs: {{"topic": "what to extract"}}
 - get_market_data needs: {{"ticker": "SYMBOL"}}
 - calculate_financial_metric needs: {{"metric_type": "emi/compound_interest/cagr", "principal": number, "rate": number, "years": number}}
+
+Examples:
+"what is this doc about" -> TOOL: search_documents / ARGS: {{"query": "document summary and purpose"}}
+"hi" -> TOOL: none / ARGS: {{}}
+
 If no tool needed, reply:
 TOOL: none
 ARGS: {{}}"""
