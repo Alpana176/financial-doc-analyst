@@ -16,6 +16,7 @@ data, and financial calculations — powered by RAG pipelines and LLM agents.
 ![Groq](https://img.shields.io/badge/Groq-Llama3.3-orange)
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-VectorDB-purple)
 
+
 ## 🎯 Problem Statement
 
 Financial professionals waste hours manually reading 200+ page annual 
@@ -23,6 +24,8 @@ reports, loan agreements, and balance sheets to extract key information.
 This system solves that in seconds — with source citations so every 
 answer is verifiable.
 
+🚀 Live Demo
+https://financial-doc-analyst-5x7qrt4xi2nid5neffs44j.streamlit.app/
 ## ✨ Features
 
 ### 📄 Multi-Format Document Support
