@@ -80,13 +80,24 @@ qdrant = QdrantClient(
 )
 
 def ensure_collection():
-    """Create the collection once if it doesn't already exist. Never deletes it."""
+    """Create the collection once if it doesn't already exist. Never deletes it.
+    Also ensures a payload index exists on 'filename' so filtered searches work reliably."""
     if not qdrant.collection_exists(QDRANT_COLLECTION):
         qdrant.create_collection(
             collection_name=QDRANT_COLLECTION,
             vectors_config=VectorParams(size=EMBEDDING_SIZE, distance=Distance.COSINE),
         )
 
+    qdrant.create_payload_index(
+        collection_name=QDRANT_COLLECTION,
+        field_name="filename",
+        field_schema="keyword",
+    )
+    qdrant.create_payload_index(
+        collection_name=QDRANT_COLLECTION,
+        field_name="filename",
+        field_schema="keyword",
+    )
 ensure_collection()
 
 # ---------------- PDF Reading ----------------
