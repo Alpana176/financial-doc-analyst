@@ -4,201 +4,97 @@ An intelligent document analysis system that lets users upload financial
 documents and get instant answers, structured data extraction, live market 
 data, and financial calculations — powered by RAG pipelines and LLM agents.
 🖼️ Preview
-## Project Preview
 
 ![Financial Document Analyst](images/your-image.png)
 
 
-
-![Python](https://img.shields.io/badge/Python-3.11-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green)
-![Streamlit](https://img.shields.io/badge/Streamlit-Frontend-red)
-![Groq](https://img.shields.io/badge/Groq-Llama3.3-orange)
-![ChromaDB](https://img.shields.io/badge/ChromaDB-VectorDB-purple)
-
-
-## 🎯 Problem Statement
-
-Financial professionals waste hours manually reading 200+ page annual 
-reports, loan agreements, and balance sheets to extract key information. 
-This system solves that in seconds — with source citations so every 
-answer is verifiable.
-
 ## 🚀 Live Demo
+👉 Try the app 👉 Backend API docs
 
 👉 [Try it live](https://financial-doc-analyst-5x7qrt4xi2nid5neffs44j.streamlit.app/)
-## ✨ Features
+🎯 What it does
 
-### 📄 Multi-Format Document Support
-Upload PDF, Word (.docx), Excel (.xlsx), CSV, or Text files. Scanned 
-documents are handled via Groq vision model OCR — no manual text 
-extraction needed.
+Upload financial documents — PDFs, Word files, Excel sheets, CSVs, or plain text — and ask natural-language questions about them. An AI agent decides which tool to use for each question and returns a grounded answer, complete with page-level citations from your actual uploaded files.
 
-### 💬 Intelligent Q&A with Source Citations
-Ask anything about your document. Every answer includes the exact page 
-number it came from — critical for financial applications where 
-auditability matters.
+📄 Multi-format ingestion — PDF, DOCX, XLSX, CSV, TXT, including OCR for scanned pages
+💬 Conversational Q&A — ask anything about an uploaded document, with full conversation history
+📚 Multi-document support — upload several files and pick exactly which one to query via a document selector
+🧮 Financial calculator — EMI, compound interest, and CAGR calculations built in
+📈 Live market data — fetch real-time stock prices by ticker
+🔍 Transparent agent reasoning — see exactly which tool was called and why, for every answer
 
-### 📊 Structured Financial Data Extraction
-Extract all financial figures as a clean, structured table instead of 
-raw paragraphs. Revenue, profit margins, ratios — organized instantly.
+🧠 Tech Stack
+Technology	Purpose
+FastAPI	Backend REST API
+Streamlit	Web UI
+Groq (openai/gpt-oss-120b)	LLM for tool routing and answer generation
+Groq Vision (qwen/qwen3.8-27b)	OCR for scanned PDF pages
+Gemini (gemini-embedding-001)	Text embeddings for semantic search
+Qdrant Cloud	Vector database for document storage and retrieval
+PyMuPDF (fitz)	PDF text extraction
+python-docx	Word document parsing
+pandas / openpyxl	Excel and CSV parsing
+yfinance	Live stock market data
+Python	Core language
 
-### 📈 Live Market Data Integration
-Combine document knowledge with real-time stock prices and market data. 
-Ask "Is the interest rate in this document competitive with current 
-market rates?" and get a complete answer.
+🏗️ Project Structure
+financial-doc-analyst/
+├── backend/
+│   ├── main.py          # FastAPI app, upload/query/documents endpoints
+│   ├── ingestion.py      # Document parsing, chunking, embeddings, Qdrant storage
+│   ├── agent.py           # Tool-routing agent logic
+│   └── tools.py           # search, extraction, market data, calculator tools
+├── frontend/
+│   └── app.py              # Streamlit UI
+├── requirements.txt
+└── .env.example
+⚙️ How to run locally
 
-### 🧮 Financial Calculator
-Built-in EMI, compound interest, and CAGR calculator. Ask in natural 
-language — the agent extracts numbers from the document and calculates 
-automatically.
-
-### 🤖 Transparent Agent Reasoning
-Every answer shows which tools were called and why — full explainability 
-of the AI's decision-making process.
-
-## 🏗️ Architecture
-User (Streamlit UI)
-  ↓
-FastAPI Backend (/upload, /query, /health)
-  ↓
-Agent Layer (Llama 3.3 via Groq)
-Decides which tool(s) to call
-  ↓
-┌─────────────────────────────────────┐
-│ search_documents │ extract_data │
-│ get_market_data │ calculate_EMI │
-└─────────────────────────────────────┘
-  ↓
-ChromaDB Vector Store
-(chunks + embeddings + page metadata)
-  ↓
-sentence-transformers (all-MiniLM-L6-v2)
-  ↓
-PDF/DOCX/XLSX/CSV Input
-
-
-## 🛠️ Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| Frontend | Streamlit |
-| Backend | FastAPI + Uvicorn |
-| LLM | Llama 3.3 70B via Groq |
-| Embeddings | sentence-transformers |
-| Vector DB | ChromaDB |
-| PDF Parser | PyMuPDF |
-| OCR | Groq Vision (qwen3.6-27b) |
-| Market Data | yfinance |
-| Language | Python 3.11 |
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Python 3.11
-- Groq API key (free at console.groq.com)
-
-### Installation
-
-```bash
-# Clone the repository
+1. Clone the repo
 git clone https://github.com/Alpana176/financial-doc-analyst.git
 cd financial-doc-analyst
 
-# Create virtual environment
+2. Create virtual environment
 python -m venv venv
-venv\Scripts\activate  # Windows
-source venv/bin/activate  # Mac/Linux
 
-# Install dependencies
+# Windows
+venv\Scripts\activate
+
+# macOS/Linux
+source venv/bin/activate
+
+3. Install dependencies
 pip install -r requirements.txt
 
-# Set up environment variables
-echo "GROQ_API_KEY=your_key_here" > .env
-```
+4. Add your API keys
 
-### Running the Application
+Create a .env file in the root folder:
+GROQ_API_KEY=your_groq_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
+QDRANT_URL=your_qdrant_cluster_url_here
+QDRANT_API_KEY=your_qdrant_api_key_here
 
-```bash
-# Terminal 1 — Start FastAPI backend
+5. Run the backend
 python backend/main.py
 
-# Terminal 2 — Start Streamlit frontend
-python -m streamlit run frontend/app.py
-```
+6. Run the frontend (in a separate terminal)
+streamlit run frontend/app.py
 
-Open `http://localhost:8501` in your browser.
+🔑 Get your API keys
+Groq: 👉 console.groq.com
+Gemini: 👉 Google AI Studio
+Qdrant Cloud: 👉 cloud.qdrant.io
 
-## 📁 Project Structure
+📌 Features
+✅ Multi-format document ingestion with OCR fallback
+✅ Agentic tool routing (search, extraction, calculation, market data)
+✅ Multi-document knowledge base with per-document filtering
+✅ Financial calculator (EMI, compound interest, CAGR)
+✅ Live stock market data lookup
+✅ Transparent agent reasoning view
+✅ Deployed as a live full-stack app (FastAPI backend + Streamlit frontend)
 
-financial-doc-analyst/
-├── backend/
-│ ├── ingestion.py # PDF/doc loading, chunking, embedding, storage
-│ ├── retrieval.py # RAG question answering
-│ ├── tools.py # 4 agent tools (search, extract, market, calc)
-│ ├── agent.py # LLM agent with tool routing
-│ └── main.py # FastAPI endpoints
-├── frontend/
-│ └── app.py # Streamlit UI (3 tabs)
-├── uploads/ # Uploaded documents
-├── vector_store/ # ChromaDB persistent storage
-├── requirements.txt
-└── .env # API keys (not committed)
+🙋‍♀️ Author
 
-## 🔍 How RAG Works in This Project
+Alpana Choubey LinkedIn • GitHub
 
-1. **Ingestion** — PDF is read page by page, text extracted with page 
-   number tracking
-2. **Chunking** — Text split into 200-word chunks with 20-word overlap
-3. **Embedding** — Each chunk converted to a 384-dim vector using 
-   sentence-transformers
-4. **Storage** — Vectors + metadata (filename, page number) stored in 
-   ChromaDB
-5. **Retrieval** — User query embedded, top-k similar chunks retrieved
-6. **Generation** — Retrieved chunks + query sent to Llama 3.3 for 
-   answer generation with source citation
-
-## 🤖 How the Agent Works
-
-The agent uses a two-step routing approach:
-
-1. **Routing** — User question + tool descriptions sent to LLM. LLM 
-   decides which tool to call and with what arguments
-2. **Execution** — Selected tool runs (document search, market API, 
-   calculator, or data extraction)
-3. **Generation** — Tool result + original question sent back to LLM 
-   for final answer
-
-This enables multi-tool queries: "What interest rate does the document 
-mention, and what's my EMI at that rate?" triggers both 
-`search_documents` and `calculate_financial_metric` in sequence.
-
-## 📈 Sample Queries
-"What is the total revenue of Tata Motors for FY2025?"
-→ Searches document, returns answer with page citation
-
-"Extract all key financial ratios from this annual report"
-→ Returns structured JSON table of all financial metrics
-
-"Calculate EMI for the loan amount mentioned in this document"
-→ Finds loan amount via RAG, calculates EMI with full breakdown
-
-"What is Apple's current stock price?"
-→ Fetches live market data via yfinance
-
-## ⚠️ Limitations & Future Improvements
-
-- OCR on free Groq tier has daily token limits (200k tokens/day)
-- Complex financial tables with merged cells may lose formatting
-- Future: Re-ranking with cross-encoders for better retrieval
-- Future: Multi-document comparison with metadata filtering
-- Future: Redis caching for repeated queries
-
-## 👩‍💻 Author
-
-**Alpana Choubey**
-- GitHub: [@Alpana176](https://github.com/Alpana176)
-- LinkedIn: https://www.linkedin.com/in/alpana-choubey-28152422a/
-
----
-⭐ Star this repo if you find it useful!
