@@ -20,8 +20,12 @@ st.markdown("Upload financial documents and get intelligent analysis powered by 
 if "conversation_history" not in st.session_state:
     st.session_state.conversation_history = []
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+if "session_id" not in st.session_state:
+    if "sid" in st.query_params:
+        st.session_state.session_id = st.query_params["sid"]
+    else:
+        st.session_state.session_id = str(uuid.uuid4())
+        st.query_params["sid"] = st.session_state.session_id
 
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
