@@ -4,6 +4,7 @@ import uuid
 import base64
 import fitz
 import docx
+import time
 import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
@@ -91,12 +92,12 @@ def ensure_collection():
     qdrant.create_payload_index(
         collection_name=QDRANT_COLLECTION,
         field_name="filename",
-        field_name="session_id",
         field_schema="keyword",
     )
+
     qdrant.create_payload_index(
         collection_name=QDRANT_COLLECTION,
-        field_name="filename",
+        field_name="session_id",
         field_schema="keyword",
     )
 ensure_collection()
