@@ -43,7 +43,7 @@ with tab1:
                 try:
                     files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                     data = {"session_id": st.session_state.session_id}
-                    response = requests.post(f"{API_URL}/upload", files=files)
+                    response = requests.post(f"{API_URL}/upload", files=files, data=data)
                     
                     if response.status_code == 200:
                         result = response.json()
