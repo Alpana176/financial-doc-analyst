@@ -1,5 +1,6 @@
 
 import os
+import uuid
 import streamlit as st
 import requests
 import json
@@ -22,6 +23,9 @@ if "conversation_history" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
+
 tab1, tab2, tab3 = st.tabs(["📄 Upload Documents", "💬 Ask Questions", "🧮 Calculator"])
 
 with tab1:
@@ -38,6 +42,7 @@ with tab1:
             with st.spinner("Processing document..."):
                 try:
                     files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+                    data = {"session_id": st.session_state.session_id}
                     response = requests.post(f"{API_URL}/upload", files=files)
                     
                     if response.status_code == 200:
@@ -55,7 +60,7 @@ with tab2:
     st.header("Ask Questions About Your Documents")
     try:
 
-        docs_response = requests.get(f"{API_URL}/documents")
+        docs_response = requests.get(f"{API_URL}/documents", params={"session_id": st.session_state.session_id})
         available_docs = docs_response.json().get("filenames", []) if docs_response.status_code == 200 else []
     except Exception:
         available_docs = []
@@ -87,7 +92,8 @@ with tab2:
                     payload = {
                         "question": prompt,
                         "conversation_history": st.session_state.conversation_history,
-                        "filename": selected_filename
+                        "filename": selected_filename,
+                        "session_id": st.session_state.session_id
                     }
                     response = requests.post(f"{API_URL}/query", json=payload)
                     

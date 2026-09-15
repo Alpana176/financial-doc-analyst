@@ -91,6 +91,7 @@ def ensure_collection():
     qdrant.create_payload_index(
         collection_name=QDRANT_COLLECTION,
         field_name="filename",
+        field_name="session_id",
         field_schema="keyword",
     )
     qdrant.create_payload_index(
@@ -183,7 +184,7 @@ def chunk_text(text, chunk_size=200, overlap=20):
         start += chunk_size - overlap
     return chunks
 
-def prepare_chunks(pages, filename):
+def prepare_chunks(pages, filename, session_id):
     doc_id = str(uuid.uuid4())
     all_chunks = []
     for page_num, text in pages:
@@ -192,7 +193,8 @@ def prepare_chunks(pages, filename):
                 "chunk_text": chunk,
                 "page_number": page_num,
                 "filename": os.path.basename(filename),
-                "doc_id": doc_id
+                "doc_id": doc_id,
+                "session_id": session_id
             })
     return all_chunks
 
@@ -215,22 +217,25 @@ def store_chunks(chunks):
                 "page_number": chunk["page_number"],
                 "filename": chunk["filename"],
                 "doc_id": chunk["doc_id"],
+                "session_id": chunk["session_id"],
             }
         ))
 
     qdrant.upsert(collection_name=QDRANT_COLLECTION, points=points)
 
-def query_collection(query_text, top_k=3, filename=None):
+def query_collection(query_text, top_k=3, filename=None, session_id=None):
     """Returns results in the same documents/metadatas shape the rest of
-    the app already expects (matches the old ChromaDB return format).
-    If filename is provided, only searches chunks from that document."""
+    the app already expects. Always scoped to session_id so users only
+    ever see their own uploaded documents."""
     query_embedding = get_embeddings([query_text])[0]
 
-    query_filter = None
+    must_conditions = []
+    if session_id:
+        must_conditions.append(FieldCondition(key="session_id", match=MatchValue(value=session_id)))
     if filename:
-        query_filter = Filter(
-            must=[FieldCondition(key="filename", match=MatchValue(value=filename))]
-        )
+        must_conditions.append(FieldCondition(key="filename", match=MatchValue(value=filename)))
+
+    query_filter = Filter(must=must_conditions) if must_conditions else None
 
     results = qdrant.query_points(
         collection_name=QDRANT_COLLECTION,
@@ -252,14 +257,22 @@ def query_collection(query_text, top_k=3, filename=None):
     return {"documents": [documents], "metadatas": [metadatas]}
 
 
-def list_uploaded_filenames():
-    """Returns a sorted list of unique filenames currently stored in Qdrant."""
+def list_uploaded_filenames(session_id=None):
+    """Returns a sorted list of unique filenames for a given session_id.
+    If session_id is None, returns nothing (never list everyone's files)."""
+    if not session_id:
+        return []
+
     filenames = set()
     next_offset = None
+    session_filter = Filter(
+        must=[FieldCondition(key="session_id", match=MatchValue(value=session_id))]
+    )
 
     while True:
         points, next_offset = qdrant.scroll(
             collection_name=QDRANT_COLLECTION,
+            scroll_filter=session_filter,
             limit=200,
             offset=next_offset,
             with_payload=["filename"],

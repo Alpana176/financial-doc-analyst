@@ -2,7 +2,7 @@ import os
 import sys
 import shutil
 import traceback
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -35,13 +35,14 @@ class QueryRequest(BaseModel):
     question: str
     conversation_history: list = []
     filename: Optional[str] = None
+    session_id: Optional[str] = None
 
 @app.get("/health")
 def health_check():
     return {"status": "ok", "message": "Financial Document Analyst API is running"}
 
 @app.post("/upload")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(file: UploadFile = File(...) , session_id: str = Form(...)):
     try:
         if not file.filename.lower().endswith(ALLOWED_EXTENSIONS):
             raise HTTPException(
@@ -58,7 +59,7 @@ async def upload_document(file: UploadFile = File(...)):
         pages = load_document(file_path)
         
         print(f"Preparing chunks from {len(pages)} pages...")
-        chunks = prepare_chunks(pages, file_path)
+        chunks = prepare_chunks(pages, file_path, session_id)
         
         if len(chunks) == 0:
             raise HTTPException(
@@ -91,7 +92,8 @@ async def query_document(request: QueryRequest):
         result = run_agent(
             user_question=request.question,
             conversation_history=request.conversation_history,
-            selected_filename=request.filename
+            selected_filename=request.filename,
+            session_id=request.session_id
         )
         
         return {
@@ -112,9 +114,9 @@ async def query_document(request: QueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/documents")
-def get_documents():
+def get_documents(session_id: str):
     try:
-        filenames = list_uploaded_filenames()
+        filenames = list_uploaded_filenames(session_id=session_id)
         return {"filenames": filenames}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
